@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Never commit credentials or cluster access
+.env
+*.pem
+*.key
+kubeconfig*
+*.kubeconfig
+
+# Local archives / build output
+*.zip
+dist/
+
+# Editor
+.vscode/
