@@ -1,0 +1,33 @@
+# The platform provisions an AWS load balancer from this reviewed Ingress.
+# Assumption A5: the platform runs the AWS Load Balancer Controller with ingress class
+# `alb`. Only its standard public annotations are used; confirm with the platform team.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: claims-api
+  annotations:
+    # Internal-only until authentication and rate limiting are confirmed (Q1, Q2, A4).
+    # Going public is a reviewed overlay change to `internet-facing`.
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    # HTTPS only: no plaintext listener. The certificate is platform-managed and
+    # matched to the hostname in spec.tls.
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /readyz
+spec:
+  ingressClassName: alb
+  tls:
+    - hosts:
+        # Explicit hostname, set per environment by the overlay. No wildcard.
+        - claims-api.set-by-overlay.apps.example.invalid
+  rules:
+    - host: claims-api.set-by-overlay.apps.example.invalid
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: claims-api
+                port:
+                  name: http

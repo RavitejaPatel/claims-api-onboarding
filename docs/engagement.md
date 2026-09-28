@@ -58,11 +58,13 @@ Each assumption has the default I used and what changes if it is wrong.
 | A2 | The platform team creates a Secret named `claims-api-db` with key `DATABASE_URL` in each namespace | Deployment references that Secret key; no Secret object is committed | Rename the reference, or add the platform's external-secret resource once its API is documented |
 | A3 | The managed PostgreSQL endpoint is a known private address on port 5432 | NetworkPolicy egress uses a documentation placeholder address (`192.0.2.10/32`) that must be replaced | The platform team supplies the real CIDR; one overlay value changes |
 | A4 | The API does not yet have confirmed caller authentication or rate limiting | Load balancer is internal-only in dev and stage until Q1/Q2 are answered; switching to internet-facing is a reviewed overlay change | If the customer confirms auth plus a rate-limit control, stage can go public via one reviewed change |
-| A5 | The platform's ingress class and TLS attachment method are platform-defined | Use an `ingressClassName` and TLS host entry only; no controller-specific annotations beyond what is documented | Add the platform's documented annotations |
+| A5 | "An AWS load balancer is provisioned from a reviewed Ingress" means the AWS Load Balancer Controller with ingress class `alb`, and TLS certificates are matched to the hostname in `spec.tls` | Use only its standard public annotations: internal scheme, IP targets, HTTPS-only listener, `/readyz` health check | Swap the class and annotations for the platform's documented ones |
 | A6 | Prometheus discovers targets through a platform convention that is not documented in the starter pack | Expose a named `http` port and document `/metrics`; the scrape integration is an explicit integration point | Add the platform's scrape resource once confirmed |
 | A7 | Pilot traffic is low | 2 replicas per environment with conservative requests/limits, tuned from metrics | Raise replicas or add autoscaling after real traffic data |
 | A8 | Schema migrations are run by the customer (their CLI), before or compatible with a new release | `/readyz` failing on schema mismatch stops a rollout safely (old pods keep serving) | Add a migration step to the release process |
 | A9 | Dev may auto-merge bot image-bump PRs once checks pass; stage requires human approval | Dev: automated PR + required checks. Stage: promotion PR reviewed by the customer and a platform code owner | If auto-merge is not allowed, dev also needs one click to merge |
+| A10 | Cluster runs Kubernetes 1.30 or newer | Native `preStop` sleep so the load balancer drains a pod before it stops; manifests validated against the 1.30 schema | Replace with an exec-based sleep for older clusters |
+| A11 | The customer image runs as an unprivileged numeric user and only writes to `/tmp` | `runAsNonRoot`, UID 10001, read-only root filesystem with a small writable `/tmp` | Adjust UID or add a writable volume after checking the image |
 
 ## 4. Open questions
 
@@ -78,11 +80,13 @@ At least these must be answered before public exposure or stage sign-off.
 | Q6 | Does the API handle personal data in claims? Could it appear in logs? | Customer | Stage sign-off | Recommend no request bodies in logs; `LOG_LEVEL=info` in stage |
 | Q7 | Where does the GitOps repository live, and may the customer's CI open PRs against it (GitHub App or bot)? | Platform | Automatic dev deploys | PR-based bot design described; credential scoped to the GitOps repo only |
 | Q8 | How are schema migrations run and ordered relative to deploys? | Customer | Safe stage rollouts | Assumption A8 |
+| Q9 | `/metrics` and `/healthz` share port 8080 with the API, so the Ingress would expose them too. Can the app serve metrics on a separate port, or should the load balancer block `/metrics`? | Customer + platform | Public exposure | Acceptable while internal-only; must be closed before going public |
 
 ## 5. Decisions made to keep the work moving
 
 - **One base, two thin overlays.** Overlays may only change: namespace, hostname, image
-  digest, replica count, `LOG_LEVEL`, `PUBLIC_MODE`, and the database egress address. A test
+  digest, replica count, `LOG_LEVEL`, `PUBLIC_MODE`, the database egress address, and the
+  environment label (the generated ConfigMap name follows from the config values). A test
   fails if anything else differs.
 - **Pinned images only.** Dev tracks the newest image digest from the customer's CI; stage
   receives the same digest through a promotion PR, so what was tested in dev is exactly what
@@ -121,7 +125,7 @@ At least these must be answered before public exposure or stage sign-off.
 6. The same image digest that passed in dev is promoted to stage through one reviewed PR.
 7. `dev` and `stage` rendered manifests differ only in the approved fields (section 5).
 8. A new operator can deploy, verify, and roll back stage using only `runbook.md`.
-9. Q1, Q2, Q4 are answered before stage is exposed beyond the internal network.
+9. Q1, Q2, Q4 and Q9 are answered before stage is exposed beyond the internal network.
 
 ## 7. Out of scope
 

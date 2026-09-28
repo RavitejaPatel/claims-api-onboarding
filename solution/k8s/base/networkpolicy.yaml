@@ -1,0 +1,49 @@
+# Namespace is dedicated to claims-api, so deny everything by default...
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# ...then allow only what claims-api needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: claims-api
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: claims-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Load balancer targets and Prometheus scrapes arrive on the app port only.
+    # Tightening the source to the load balancer subnets and the monitoring
+    # namespace needs values from the platform team (integration point).
+    - ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # DNS resolution through cluster DNS.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Managed PostgreSQL only. Each overlay sets its own database address (A3).
+    # No other egress: no arbitrary internet access.
+    - to:
+        - ipBlock:
+            cidr: 192.0.2.0/32
+      ports:
+        - protocol: TCP
+          port: 5432

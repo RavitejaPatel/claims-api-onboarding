@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-api
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  # A new pod must stay ready this long before it counts as available.
+  minReadySeconds: 10
+  # Rollout is marked failed (and Argo CD shows Degraded) if it cannot finish in 5 minutes.
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Zero-downtime: never remove a ready pod before its replacement is ready.
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels: {}
+  template:
+    spec:
+      serviceAccountName: claims-api
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        # Assumption: the customer image runs as an unprivileged numeric user.
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: claims-api
+      containers:
+        - name: claims-api
+          # Placeholder name only. Every overlay pins this to an immutable digest
+          # through the kustomize `images` field; a test fails if it is not pinned.
+          image: registry.example.invalid/claims-api
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: claims-api-config
+          env:
+            # Secret value is created out of band by the platform team (assumption A2).
+            # Only the reference lives in Git.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: claims-api-db
+                  key: DATABASE_URL
+          # Gives a slow start up to 60s before liveness applies.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          # Process health only: a database outage must NOT restart the pod.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          # Database connectivity + schema compatibility: removes the pod from
+          # traffic when it cannot serve, and stalls a bad rollout safely.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          lifecycle:
+            # Lets the load balancer deregister the pod before it stops,
+            # so in-flight requests are not dropped during a rollout.
+            # Native sleep action; assumes Kubernetes 1.30+.
+            preStop:
+              sleep:
+                seconds: 10
+          resources:
+            # Starting point for a low-traffic pilot (A7); tune from metrics.
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # Writable scratch space, since the root filesystem is read-only.
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
