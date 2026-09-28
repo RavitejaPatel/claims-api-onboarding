@@ -1,8 +1,8 @@
 claims-api validation
   where:       container (Linux, Claude workspace)
-  when (UTC):  2026-09-28T19:14:26+00:00
-  commit:      5ff8c6d
-  content:     554d50075d4e42e3 (sha256 of solution/ and tests/)
+  when (UTC):  2026-09-28T21:40:13+00:00
+  commit:      43c0271
+  content:     138eeb1d93a73f75 (sha256 of solution/ and tests/)
   python:      3.11.15
   kustomize:   v5.4.3
   kubeconform: v0.6.7
@@ -71,7 +71,7 @@ claims-api validation
   test_repository_contains_no_credentials (test_contract.RealManifestsPass.test_repository_contains_no_credentials) ... ok
   
   ----------------------------------------------------------------------
-  Ran 22 tests in 0.105s
+  Ran 22 tests in 0.085s
   
   OK
 

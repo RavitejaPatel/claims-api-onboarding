@@ -84,12 +84,18 @@ def content_fingerprint() -> str:
     """
     import hashlib
 
+    root = manifests.REPO_ROOT
     digest = hashlib.sha256()
     for folder in ("solution", "tests"):
-        for path in sorted((manifests.REPO_ROOT / folder).rglob("*")):
-            if path.is_file() and "__pycache__" not in path.parts:
-                digest.update(path.relative_to(manifests.REPO_ROOT).as_posix().encode())
-                digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
+        files = [
+            p for p in (root / folder).rglob("*")
+            if p.is_file() and "__pycache__" not in p.parts
+        ]
+        # Sort by the POSIX path string, not Path objects: Windows paths compare
+        # case-insensitively, which would give a different order (and hash) than Linux.
+        for path in sorted(files, key=lambda p: p.relative_to(root).as_posix()):
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
     return digest.hexdigest()[:16]
 
 
