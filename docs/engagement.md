@@ -65,6 +65,7 @@ Each assumption has the default I used and what changes if it is wrong.
 | A9 | Dev may auto-merge bot image-bump PRs once checks pass; stage requires human approval | Dev: automated PR + required checks. Stage: promotion PR reviewed by the customer and a platform code owner | If auto-merge is not allowed, dev also needs one click to merge |
 | A10 | Cluster runs Kubernetes 1.30 or newer | Native `preStop` sleep so the load balancer drains a pod before it stops; manifests validated against the 1.30 schema | Replace with an exec-based sleep for older clusters |
 | A11 | The customer image runs as an unprivileged numeric user and only writes to `/tmp` | `runAsNonRoot`, UID 10001, read-only root filesystem with a small writable `/tmp` | Adjust UID or add a writable volume after checking the image |
+| A12 | No real image exists for this exercise (`registry.example.invalid`) | Overlays pin a reproducible synthetic digest: sha256 of the text `claims-api synthetic placeholder image 1.0.0` | CI replaces it with the real digest on the first build |
 
 ## 4. Open questions
 

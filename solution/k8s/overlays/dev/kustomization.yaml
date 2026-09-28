@@ -14,10 +14,12 @@ labels:
     includeTemplates: true
 
 # Immutable image. Updated by the delivery pipeline through a pull request, never by hand.
-# The digest is a synthetic placeholder: registry.example.invalid does not exist.
+# Synthetic placeholder: registry.example.invalid does not exist. The digest is the sha256
+# of the text "claims-api synthetic placeholder image 1.0.0" so anyone can reproduce it.
+# In real use, CI writes the digest the registry returned for the pushed image.
 images:
   - name: registry.example.invalid/claims-api
-    digest: sha256:3f5a1c0e9b7d2a4f6e8c0b1d3a5f7e9c2b4d6f8a0c1e3b5d7f9a2c4e6b8d0f1a
+    digest: sha256:8f89a1200b50804542f1ec133c701693731a28375e1c72cc6d25c50c288eedd1
 
 replicas:
   - name: claims-api
