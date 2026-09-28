@@ -7,7 +7,7 @@ Steps:
   3. Run the contract checks for each environment.
   4. Check that dev and stage differ only in approved overlay fields.
   5. Scan the repository for credentials.
-  6. Run the unit tests (real manifests pass; broken copies are caught).
+  6. Run the unit tests (manifests, delivery path, and workflow trust rules).
 
 Rendered manifests and a log of everything are written to evidence/.
 Nothing is deployed and no cluster is contacted.
@@ -69,15 +69,15 @@ def git_commit() -> str:
         capture_output=True, text=True, check=False,
     )
     dirty = subprocess.run(
-        ["git", "-C", str(manifests.REPO_ROOT), "status", "--porcelain", "--", "solution", "tests"],
+        ["git", "-C", str(manifests.REPO_ROOT), "status", "--porcelain", "--", "solution", "tests", ".github"],
         capture_output=True, text=True, check=False,
     )
     commit = out.stdout.strip() or "unknown"
-    return commit + (" (with uncommitted changes in solution/ or tests/)" if dirty.stdout.strip() else "")
+    return commit + (" (with uncommitted changes in solution/, tests/ or .github/)" if dirty.stdout.strip() else "")
 
 
 def content_fingerprint() -> str:
-    """sha256 over every file in solution/ and tests/, line endings normalized.
+    """sha256 over every file in solution/, tests/ and .github/, line endings normalized.
 
     Git commit hashes differ between copies of the repo; this does not. Two runs with the
     same fingerprint validated byte-identical manifests and tests.
@@ -86,7 +86,7 @@ def content_fingerprint() -> str:
 
     root = manifests.REPO_ROOT
     digest = hashlib.sha256()
-    for folder in ("solution", "tests"):
+    for folder in ("solution", "tests", ".github"):
         files = [
             p for p in (root / folder).rglob("*")
             if p.is_file() and "__pycache__" not in p.parts
@@ -124,7 +124,7 @@ def main() -> int:
     log(f"  where:       {args.where}")
     log(f"  when (UTC):  {started.isoformat()}")
     log(f"  commit:      {git_commit()}")
-    log(f"  content:     {content_fingerprint()} (sha256 of solution/ and tests/)")
+    log(f"  content:     {content_fingerprint()} (sha256 of solution/, tests/ and .github/)")
     log(f"  python:      {platform.python_version()}")
     log(f"  kustomize:   {tool_version(manifests.kustomize_version_command())}")
     log(f"  kubeconform: {tool_version(['kubeconform', '-v'])}")
