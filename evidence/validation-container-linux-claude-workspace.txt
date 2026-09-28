@@ -1,24 +1,25 @@
 claims-api validation
   where:       container (Linux, Claude workspace)
-  when (UTC):  2026-09-28T21:46:40+00:00
-  commit:      14bf8e9
-  content:     2ecd9f7b2e67665c (sha256 of solution/, tests/ and .github/)
+  when (UTC):  2026-09-28T22:01:06+00:00
+  commit:      09a4a44
+  content:     5953d2cf4d414aa5 (sha256 of solution/, tests/ and .github/)
   python:      3.11.15
   kustomize:   v5.4.3
   kubeconform: v0.6.7
+  promtool:    promtool, version 2.54.1 (branch: HEAD, revision: e6cfa720fbe6280153fab13090a483dbd40bece3)
   scope:       static checks only; nothing is deployed and no cluster is contacted
 
-[1/6] Render overlays with Kustomize
+[1/7] Render overlays with Kustomize
   PASS dev: 8 resources -> evidence/rendered/dev.yaml
        ConfigMap/claims-api-config-c4d2mg8c58, Deployment/claims-api, Ingress/claims-api, NetworkPolicy/claims-api, NetworkPolicy/default-deny-all, PodDisruptionBudget/claims-api, Service/claims-api, ServiceAccount/claims-api
   PASS stage: 8 resources -> evidence/rendered/stage.yaml
        ConfigMap/claims-api-config-md9ftdh6kt, Deployment/claims-api, Ingress/claims-api, NetworkPolicy/claims-api, NetworkPolicy/default-deny-all, PodDisruptionBudget/claims-api, Service/claims-api, ServiceAccount/claims-api
 
-[2/6] Validate against Kubernetes schemas (kubeconform)
+[2/7] Validate against Kubernetes schemas (kubeconform)
   Summary: 16 resources found in 2 files - Valid: 16, Invalid: 0, Errors: 0, Skipped: 0
   PASS schema validation
 
-[3/6] Contract checks
+[3/7] Contract checks
   PASS dev   check_namespace
   PASS dev   check_image_pinned
   PASS dev   check_probes_and_port
@@ -40,13 +41,13 @@ claims-api validation
   PASS stage check_service_wiring
   PASS stage check_network_policy
 
-[4/6] Environment drift (dev vs stage)
+[4/7] Environment drift (dev vs stage)
   PASS dev and stage differ only in approved overlay fields
 
-[5/6] Credential scan (whole repository)
+[5/7] Credential scan (whole repository)
   PASS no credential markers found
 
-[6/6] Unit tests (python -m unittest)
+[6/7] Unit tests (python -m unittest)
   test_admin_path_exposed (test_contract.ChecksCatchMistakes.test_admin_path_exposed) ... ok
   test_database_url_as_literal_value (test_contract.ChecksCatchMistakes.test_database_url_as_literal_value) ... ok
   test_drift_outside_overlay_fields (test_contract.ChecksCatchMistakes.test_drift_outside_overlay_fields) ... ok
@@ -83,10 +84,24 @@ claims-api validation
   test_third_party_actions_are_pinned_to_a_commit (test_delivery.WorkflowTrustBoundary.test_third_party_actions_are_pinned_to_a_commit) ... ok
   test_tool_downloads_are_checksum_verified (test_delivery.WorkflowTrustBoundary.test_tool_downloads_are_checksum_verified) ... ok
   test_workflows_exist (test_delivery.WorkflowTrustBoundary.test_workflows_exist) ... ok
+  test_database_outage_fails_readiness_only (test_smoke.SmokeTest.test_database_outage_fails_readiness_only) ... ok
+  test_exit_code (test_smoke.SmokeTest.test_exit_code) ... ok
+  test_exposed_admin_endpoint_fails (test_smoke.SmokeTest.test_exposed_admin_endpoint_fails) ... ok
+  test_healthy_service_passes (test_smoke.SmokeTest.test_healthy_service_passes) ... ok
+  test_metrics_must_be_prometheus_text (test_smoke.SmokeTest.test_metrics_must_be_prometheus_text) ... ok
+  test_unreachable_service_fails_every_http_check (test_smoke.SmokeTest.test_unreachable_service_fails_every_http_check) ... ok
   
   ----------------------------------------------------------------------
-  Ran 36 tests in 0.162s
+  Ran 42 tests in 3.730s
   
   OK
+
+[7/7] Alert rules (promtool)
+  Checking /home/claude/work/claims-api-onboarding/solution/observability/alerts.yaml
+    SUCCESS: 5 rules found
+  PASS rule syntax
+  Unit Testing:  /home/claude/work/claims-api-onboarding/solution/observability/alerts.test.yaml
+    SUCCESS
+  PASS alert unit tests
 
 RESULT: PASS
