@@ -1,0 +1,28 @@
+# Proposed Argo CD Application for stage. The platform team owns Argo CD, so they apply
+# this (or their own equivalent); it is here so the path from Git to cluster is explicit.
+# Argo CD pulls from Git: CI never holds cluster credentials.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: claims-api-stage
+  namespace: argocd
+spec:
+  # Assumption: the platform team provides an AppProject that limits this application to
+  # its own namespace and to namespaced resource kinds.
+  project: claims
+  source:
+    repoURL: https://github.com/example-org/platform-gitops.git
+    targetRevision: main
+    path: solution/k8s/overlays/stage
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: claims-api-stage
+  syncPolicy:
+    # A merged pull request is the approval, so Argo CD applies it without a second click.
+    # selfHeal reverts manual changes in the cluster back to what Git says.
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # The namespace is created by the platform team, not by this application.
+      - CreateNamespace=false

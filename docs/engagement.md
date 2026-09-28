@@ -66,6 +66,8 @@ Each assumption has the default I used and what changes if it is wrong.
 | A10 | Cluster runs Kubernetes 1.30 or newer | Native `preStop` sleep so the load balancer drains a pod before it stops; manifests validated against the 1.30 schema | Replace with an exec-based sleep for older clusters |
 | A11 | The customer image runs as an unprivileged numeric user and only writes to `/tmp` | `runAsNonRoot`, UID 10001, read-only root filesystem with a small writable `/tmp` | Adjust UID or add a writable volume after checking the image |
 | A12 | No real image exists for this exercise (`registry.example.invalid`) | Overlays pin a reproducible synthetic digest: sha256 of the text `claims-api synthetic placeholder image 1.0.0` | CI replaces it with the real digest on the first build |
+| A13 | The customer registry accepts a push credential stored as a GitHub environment secret | Push credential only in the app repo's `release` environment, used only after merge | If the registry supports OIDC federation (Q10), use a short-lived push role instead and delete the secret |
+| A14 | The GitOps repository uses this repository's layout, at `example-org/platform-gitops` | Workflows and Argo CD Applications use these paths and name | Update the names and paths once Q7 is answered |
 
 ## 4. Open questions
 
@@ -82,6 +84,7 @@ At least these must be answered before public exposure or stage sign-off.
 | Q7 | Where does the GitOps repository live, and may the customer's CI open PRs against it (GitHub App or bot)? | Platform | Automatic dev deploys | PR-based bot design described; credential scoped to the GitOps repo only |
 | Q8 | How are schema migrations run and ordered relative to deploys? | Customer | Safe stage rollouts | Assumption A8 |
 | Q9 | `/metrics` and `/healthz` share port 8080 with the API, so the Ingress would expose them too. Can the app serve metrics on a separate port, or should the load balancer block `/metrics`? | Customer + platform | Public exposure | Acceptable while internal-only; must be closed before going public |
+| Q10 | Does the customer registry support OIDC federation from GitHub Actions, so CI needs no stored push credential? | Customer | Nothing (hardening) | Environment-scoped push credential (A13) |
 
 ## 5. Decisions made to keep the work moving
 

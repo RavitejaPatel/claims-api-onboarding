@@ -1,0 +1,70 @@
+name: promote-to-stage
+
+# Copies the image digest that is running in dev into the stage overlay and opens a pull
+# request. The pull request is the approval gate: stage changes need review from both the
+# customer team and the platform team before Argo CD applies them.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-to-stage
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The GitHub App key used below exists only in this environment. The environment is
+    # limited to the main branch, and can require a named approver before the job starts.
+    environment: stage-promotion
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+
+      - uses: ./.github/actions/setup-tools
+
+      - name: Copy the dev digest into the stage overlay
+        id: promote
+        run: python solution/ci/set_image_digest.py --env stage --from-env dev
+
+      - name: Validate before proposing the change
+        if: steps.promote.outputs.changed == 'true'
+        run: python tests/validate.py --where "ci (stage promotion)"
+
+      # Pull requests opened with the default GITHUB_TOKEN do not trigger other workflows,
+      # so the required `validate` check would never run on them. A short-lived GitHub App
+      # token (1 hour, this repository only) avoids that without a personal access token.
+      - name: Create a short-lived token
+        if: steps.promote.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1.11.0
+        with:
+          app-id: ${{ vars.PROMOTION_APP_ID }}
+          private-key: ${{ secrets.PROMOTION_APP_PRIVATE_KEY }}
+
+      - name: Open the promotion pull request
+        if: steps.promote.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7.0.5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: promote/claims-api-stage
+          add-paths: solution/k8s/overlays/stage/kustomization.yaml
+          commit-message: "chore(stage): promote claims-api ${{ steps.promote.outputs.short }} from dev"
+          title: "Promote claims-api ${{ steps.promote.outputs.short }} to stage"
+          body: |
+            Promotes the image digest currently deployed in dev to stage:
+
+            `${{ steps.promote.outputs.digest }}`
+
+            Only the image digest line in the stage overlay changes. Before approving,
+            confirm dev has been healthy on this digest (see runbook.md, "Promote to stage").
+          labels: promotion

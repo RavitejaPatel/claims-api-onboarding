@@ -1,0 +1,36 @@
+name: setup-tools
+description: >
+  Install pinned, checksum-verified kustomize, kubeconform and actionlint, plus the Python
+  dependency used by tests/validate.py. Requires actions/setup-python to run first.
+runs:
+  using: composite
+  steps:
+    - name: Install tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        bin="$RUNNER_TEMP/bin"
+        mkdir -p "$bin"
+        cd "$RUNNER_TEMP"
+
+        # Download, then refuse to continue unless the checksum matches the one published
+        # with the release. Versions and checksums change only through a reviewed PR.
+        fetch() {
+          curl -fsSL -o "$2" "$1"
+          echo "$3  $2" | sha256sum -c -
+        }
+
+        fetch "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz" \
+          kustomize.tar.gz 3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7
+        tar -xzf kustomize.tar.gz -C "$bin" kustomize
+
+        fetch "https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz" \
+          kubeconform.tar.gz 95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73
+        tar -xzf kubeconform.tar.gz -C "$bin" kubeconform
+
+        fetch "https://github.com/rhysd/actionlint/releases/download/v1.7.3/actionlint_1.7.3_linux_amd64.tar.gz" \
+          actionlint.tar.gz 37252b4d440b56374b0fc1726e05fd7452d30d6d774f6e9b52e65bb64475f9db
+        tar -xzf actionlint.tar.gz -C "$bin" actionlint
+
+        echo "$bin" >> "$GITHUB_PATH"
+        python -m pip install --disable-pip-version-check -r "$GITHUB_WORKSPACE/tests/requirements.txt"

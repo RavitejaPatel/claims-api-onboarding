@@ -1,0 +1,103 @@
+# Lives in the CUSTOMER's application repository as .github/workflows/release.yml.
+# Kept here so the whole delivery path can be reviewed in one place.
+#
+# Pull requests in the application repository run the customer's own tests with no
+# secrets. Only a push to main (a merged, reviewed change) reaches this workflow.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # The registry push credential exists only in this environment (assumption A13).
+    environment: release
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+
+      - uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: registry.example.invalid
+          username: ${{ vars.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PUSH_TOKEN }}
+
+      # The tag is the commit SHA, for humans. Deployments use the digest, which cannot move.
+      - id: push
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        with:
+          context: .
+          push: true
+          tags: registry.example.invalid/claims-api:${{ github.sha }}
+          provenance: true
+          sbom: true
+
+  deploy-dev:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The GitHub App key that can open pull requests on the GitOps repository exists only
+    # in this environment. The token it mints is scoped to that one repository.
+    environment: gitops-dev
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1.11.0
+        with:
+          app-id: ${{ vars.GITOPS_APP_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          owner: example-org
+          repositories: platform-gitops
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: example-org/platform-gitops
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+
+      # Values from earlier steps go through env, never straight into the script text.
+      - id: pin
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+        run: python solution/ci/set_image_digest.py --env dev --digest "$DIGEST"
+
+      - id: pr
+        if: steps.pin.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7.0.5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: deploy/claims-api-dev
+          add-paths: solution/k8s/overlays/dev/kustomization.yaml
+          commit-message: "chore(dev): deploy claims-api ${{ steps.pin.outputs.short }}"
+          title: "Deploy claims-api ${{ steps.pin.outputs.short }} to dev"
+          body: |
+            Built from ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+            Image: `registry.example.invalid/claims-api@${{ steps.pin.outputs.digest }}`
+          labels: deploy-dev
+
+      # Merges on its own once the required `validate` check passes (assumption A9).
+      - name: Enable auto-merge for dev
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUMBER" --repo example-org/platform-gitops --auto --squash

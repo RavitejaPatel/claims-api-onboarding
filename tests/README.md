@@ -14,7 +14,7 @@ python tests/validate.py
 | 3. Contract | 10 checks per environment in `contract_checks.py` (image pinning, probes, rollout, resources, security context, config/secret, ingress, wiring, network policy, namespace) | The manifests follow the brief, app notes, platform contract, and `docs/engagement.md` |
 | 4. Drift | Dev and stage compared after removing the approved overlay fields; any other difference is reported by field path | "Dev and stage differ only through reviewed overlay configuration" |
 | 5. Credentials | Every text file in the repository scanned for keys, tokens, passwords in URLs, and Secrets with inline data | A committed secret is a hard fail |
-| 6. Unit tests | `test_contract.py`: the real manifests pass, and 19 deliberate mistakes (broken copies of the manifests and fake credentials) are each caught by the right check | Proves the checks can fail, so a pass means something |
+| 6. Unit tests | `test_contract.py`: the real manifests pass, and 19 deliberate mistakes (broken copies of the manifests and fake credentials) are each caught by the right check. `test_delivery.py`: digest pinning, Argo CD wiring, and the CI trust rules (pinned actions, read-only token, no secrets on pull requests) | Proves the checks can fail, so a pass means something |
 
 The result and all output are written to `evidence/validation-<where>.txt`. The exit
 code is 0 on success and 1 on any failure, so CI can use the same command.
@@ -29,6 +29,7 @@ code is 0 on success and 1 on any failure, so CI can use the same command.
 | `validate.py` | The one-command runner described above |
 | `contract_checks.py` | The rules, each traced to an input document |
 | `test_contract.py` | Unit tests for the rules |
+| `test_delivery.py` | Tests for the delivery path and workflow trust boundary |
 | `manifests.py` | Renders an overlay and parses the YAML (shared by the runner and tests) |
 | `secret_scan.py` | Credential scanner |
 | `requirements.txt` | Python dependency (PyYAML) |

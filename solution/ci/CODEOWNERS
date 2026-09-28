@@ -1,0 +1,11 @@
+# Proposed .github/CODEOWNERS for the GitOps repository.
+# Team names are placeholders until the customer and platform team confirm them (Q4, Q7).
+# Several owners on one line means ANY of them may approve. "Both teams must approve" for
+# stage is enforced by a repository ruleset (see docs/delivery.md), not by this file.
+
+*                               @example-org/platform-team
+/.github/                       @example-org/platform-team
+/solution/argocd/               @example-org/platform-team
+/solution/k8s/base/             @example-org/claims-team @example-org/platform-team
+/solution/k8s/overlays/dev/     @example-org/claims-team
+/solution/k8s/overlays/stage/   @example-org/claims-team @example-org/platform-team

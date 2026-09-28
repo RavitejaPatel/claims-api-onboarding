@@ -1,0 +1,47 @@
+name: validate
+
+# Runs on every pull request, including pull requests from forks. It uses no secrets and
+# a read-only token, so running untrusted code here cannot reach any credential.
+# Make the `validate` check required on the main branch.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+
+      - uses: ./.github/actions/setup-tools
+
+      - name: Lint workflows
+        run: actionlint .github/workflows/*.yml solution/ci/app-repo-release.yml
+
+      - name: Validate manifests, contracts, drift and credentials
+        run: python tests/validate.py --where "ci (GitHub Actions)"
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: validation-evidence
+          path: evidence/
+          retention-days: 30
