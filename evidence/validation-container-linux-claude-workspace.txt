@@ -1,8 +1,8 @@
 claims-api validation
   where:       container (Linux, Claude workspace)
-  when (UTC):  2026-09-28T21:40:13+00:00
-  commit:      43c0271
-  content:     138eeb1d93a73f75 (sha256 of solution/ and tests/)
+  when (UTC):  2026-09-28T21:46:40+00:00
+  commit:      14bf8e9
+  content:     2ecd9f7b2e67665c (sha256 of solution/, tests/ and .github/)
   python:      3.11.15
   kustomize:   v5.4.3
   kubeconform: v0.6.7
@@ -69,9 +69,23 @@ claims-api validation
   test_dev_and_stage_differ_only_in_approved_fields (test_contract.RealManifestsPass.test_dev_and_stage_differ_only_in_approved_fields) ... ok
   test_every_check_passes_for_every_environment (test_contract.RealManifestsPass.test_every_check_passes_for_every_environment) ... ok
   test_repository_contains_no_credentials (test_contract.RealManifestsPass.test_repository_contains_no_credentials) ... ok
+  test_each_environment_points_at_its_own_overlay_and_namespace (test_delivery.ArgoApplications.test_each_environment_points_at_its_own_overlay_and_namespace) ... ok
+  test_changes_only_the_digest_line (test_delivery.DigestPinning.test_changes_only_the_digest_line) ... ok
+  test_promotion_copies_dev_digest_to_stage (test_delivery.DigestPinning.test_promotion_copies_dev_digest_to_stage) ... ok
+  test_refuses_an_overlay_with_two_digests (test_delivery.DigestPinning.test_refuses_an_overlay_with_two_digests) ... ok
+  test_rejects_anything_but_a_sha256_digest (test_delivery.DigestPinning.test_rejects_anything_but_a_sha256_digest) ... ok
+  test_same_digest_is_a_no_op (test_delivery.DigestPinning.test_same_digest_is_a_no_op) ... ok
+  test_checkout_does_not_leave_credentials_behind (test_delivery.WorkflowTrustBoundary.test_checkout_does_not_leave_credentials_behind) ... ok
+  test_default_token_is_read_only (test_delivery.WorkflowTrustBoundary.test_default_token_is_read_only) ... ok
+  test_jobs_with_secrets_run_only_after_merge_and_inside_an_environment (test_delivery.WorkflowTrustBoundary.test_jobs_with_secrets_run_only_after_merge_and_inside_an_environment) ... ok
+  test_no_privileged_pull_request_triggers (test_delivery.WorkflowTrustBoundary.test_no_privileged_pull_request_triggers) ... ok
+  test_pull_request_workflow_uses_no_secrets (test_delivery.WorkflowTrustBoundary.test_pull_request_workflow_uses_no_secrets) ... ok
+  test_third_party_actions_are_pinned_to_a_commit (test_delivery.WorkflowTrustBoundary.test_third_party_actions_are_pinned_to_a_commit) ... ok
+  test_tool_downloads_are_checksum_verified (test_delivery.WorkflowTrustBoundary.test_tool_downloads_are_checksum_verified) ... ok
+  test_workflows_exist (test_delivery.WorkflowTrustBoundary.test_workflows_exist) ... ok
   
   ----------------------------------------------------------------------
-  Ran 22 tests in 0.085s
+  Ran 36 tests in 0.162s
   
   OK
 

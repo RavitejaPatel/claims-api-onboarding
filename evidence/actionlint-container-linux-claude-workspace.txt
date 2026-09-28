@@ -1,0 +1,8 @@
+actionlint run
+  where: container (Linux, Claude workspace)
+  when (UTC): 2026-09-28T21:46:41+00:00
+  commit: 14bf8e9
+  actionlint: 1.7.3
+  command: actionlint .github/workflows/*.yml solution/ci/app-repo-release.yml
+
+exit code: 0 (0 = no problems found)
