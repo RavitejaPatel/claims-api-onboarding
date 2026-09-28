@@ -1,0 +1,78 @@
+claims-api validation
+  where:       container (Linux, Claude workspace)
+  when (UTC):  2026-09-28T19:14:26+00:00
+  commit:      5ff8c6d
+  content:     554d50075d4e42e3 (sha256 of solution/ and tests/)
+  python:      3.11.15
+  kustomize:   v5.4.3
+  kubeconform: v0.6.7
+  scope:       static checks only; nothing is deployed and no cluster is contacted
+
+[1/6] Render overlays with Kustomize
+  PASS dev: 8 resources -> evidence/rendered/dev.yaml
+       ConfigMap/claims-api-config-c4d2mg8c58, Deployment/claims-api, Ingress/claims-api, NetworkPolicy/claims-api, NetworkPolicy/default-deny-all, PodDisruptionBudget/claims-api, Service/claims-api, ServiceAccount/claims-api
+  PASS stage: 8 resources -> evidence/rendered/stage.yaml
+       ConfigMap/claims-api-config-md9ftdh6kt, Deployment/claims-api, Ingress/claims-api, NetworkPolicy/claims-api, NetworkPolicy/default-deny-all, PodDisruptionBudget/claims-api, Service/claims-api, ServiceAccount/claims-api
+
+[2/6] Validate against Kubernetes schemas (kubeconform)
+  Summary: 16 resources found in 2 files - Valid: 16, Invalid: 0, Errors: 0, Skipped: 0
+  PASS schema validation
+
+[3/6] Contract checks
+  PASS dev   check_namespace
+  PASS dev   check_image_pinned
+  PASS dev   check_probes_and_port
+  PASS dev   check_rollout
+  PASS dev   check_resources
+  PASS dev   check_security_context
+  PASS dev   check_config_and_secret
+  PASS dev   check_ingress
+  PASS dev   check_service_wiring
+  PASS dev   check_network_policy
+  PASS stage check_namespace
+  PASS stage check_image_pinned
+  PASS stage check_probes_and_port
+  PASS stage check_rollout
+  PASS stage check_resources
+  PASS stage check_security_context
+  PASS stage check_config_and_secret
+  PASS stage check_ingress
+  PASS stage check_service_wiring
+  PASS stage check_network_policy
+
+[4/6] Environment drift (dev vs stage)
+  PASS dev and stage differ only in approved overlay fields
+
+[5/6] Credential scan (whole repository)
+  PASS no credential markers found
+
+[6/6] Unit tests (python -m unittest)
+  test_admin_path_exposed (test_contract.ChecksCatchMistakes.test_admin_path_exposed) ... ok
+  test_database_url_as_literal_value (test_contract.ChecksCatchMistakes.test_database_url_as_literal_value) ... ok
+  test_drift_outside_overlay_fields (test_contract.ChecksCatchMistakes.test_drift_outside_overlay_fields) ... ok
+  test_egress_to_internet (test_contract.ChecksCatchMistakes.test_egress_to_internet) ... ok
+  test_liveness_on_database_endpoint (test_contract.ChecksCatchMistakes.test_liveness_on_database_endpoint) ... ok
+  test_missing_memory_limit (test_contract.ChecksCatchMistakes.test_missing_memory_limit) ... ok
+  test_overlay_forgot_hostname (test_contract.ChecksCatchMistakes.test_overlay_forgot_hostname) ... ok
+  test_plain_http_listener (test_contract.ChecksCatchMistakes.test_plain_http_listener) ... ok
+  test_privilege_escalation (test_contract.ChecksCatchMistakes.test_privilege_escalation) ... ok
+  test_public_load_balancer (test_contract.ChecksCatchMistakes.test_public_load_balancer) ... ok
+  test_rollout_that_can_drop_capacity (test_contract.ChecksCatchMistakes.test_rollout_that_can_drop_capacity) ... ok
+  test_secret_object_committed (test_contract.ChecksCatchMistakes.test_secret_object_committed) ... ok
+  test_secret_scanner_detects_credentials (test_contract.ChecksCatchMistakes.test_secret_scanner_detects_credentials) ... ok
+  test_secret_scanner_flags_inline_secret_but_not_a_later_configmap (test_contract.ChecksCatchMistakes.test_secret_scanner_flags_inline_secret_but_not_a_later_configmap) ... ok
+  test_service_selector_mismatch (test_contract.ChecksCatchMistakes.test_service_selector_mismatch) ... ok
+  test_single_replica (test_contract.ChecksCatchMistakes.test_single_replica) ... ok
+  test_unpinned_image (test_contract.ChecksCatchMistakes.test_unpinned_image) ... ok
+  test_wildcard_host (test_contract.ChecksCatchMistakes.test_wildcard_host) ... ok
+  test_wrong_namespace (test_contract.ChecksCatchMistakes.test_wrong_namespace) ... ok
+  test_dev_and_stage_differ_only_in_approved_fields (test_contract.RealManifestsPass.test_dev_and_stage_differ_only_in_approved_fields) ... ok
+  test_every_check_passes_for_every_environment (test_contract.RealManifestsPass.test_every_check_passes_for_every_environment) ... ok
+  test_repository_contains_no_credentials (test_contract.RealManifestsPass.test_repository_contains_no_credentials) ... ok
+  
+  ----------------------------------------------------------------------
+  Ran 22 tests in 0.105s
+  
+  OK
+
+RESULT: PASS
