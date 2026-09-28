@@ -1,24 +1,25 @@
 claims-api validation
   where:       local (Windows)
-  when (UTC):  2026-09-28T21:41:39+00:00
-  commit:      b39eb6f
-  content:     138eeb1d93a73f75 (sha256 of solution/ and tests/)
+  when (UTC):  2026-09-28T22:09:49+00:00
+  commit:      0722a64
+  content:     5953d2cf4d414aa5 (sha256 of solution/, tests/ and .github/)
   python:      3.14.7
   kustomize:   v5.4.3
   kubeconform: v0.6.7
+  promtool:    not installed (optional)
   scope:       static checks only; nothing is deployed and no cluster is contacted
 
-[1/6] Render overlays with Kustomize
+[1/7] Render overlays with Kustomize
   PASS dev: 8 resources -> evidence/rendered/dev.yaml
        ConfigMap/claims-api-config-c4d2mg8c58, Deployment/claims-api, Ingress/claims-api, NetworkPolicy/claims-api, NetworkPolicy/default-deny-all, PodDisruptionBudget/claims-api, Service/claims-api, ServiceAccount/claims-api
   PASS stage: 8 resources -> evidence/rendered/stage.yaml
        ConfigMap/claims-api-config-md9ftdh6kt, Deployment/claims-api, Ingress/claims-api, NetworkPolicy/claims-api, NetworkPolicy/default-deny-all, PodDisruptionBudget/claims-api, Service/claims-api, ServiceAccount/claims-api
 
-[2/6] Validate against Kubernetes schemas (kubeconform)
+[2/7] Validate against Kubernetes schemas (kubeconform)
   Summary: 16 resources found in 2 files - Valid: 16, Invalid: 0, Errors: 0, Skipped: 0
   PASS schema validation
 
-[3/6] Contract checks
+[3/7] Contract checks
   PASS dev   check_namespace
   PASS dev   check_image_pinned
   PASS dev   check_probes_and_port
@@ -40,13 +41,13 @@ claims-api validation
   PASS stage check_service_wiring
   PASS stage check_network_policy
 
-[4/6] Environment drift (dev vs stage)
+[4/7] Environment drift (dev vs stage)
   PASS dev and stage differ only in approved overlay fields
 
-[5/6] Credential scan (whole repository)
+[5/7] Credential scan (whole repository)
   PASS no credential markers found
 
-[6/6] Unit tests (python -m unittest)
+[6/7] Unit tests (python -m unittest)
   test_admin_path_exposed (test_contract.ChecksCatchMistakes.test_admin_path_exposed) ... ok
   test_database_url_as_literal_value (test_contract.ChecksCatchMistakes.test_database_url_as_literal_value) ... ok
   test_drift_outside_overlay_fields (test_contract.ChecksCatchMistakes.test_drift_outside_overlay_fields) ... ok
@@ -69,10 +70,33 @@ claims-api validation
   test_dev_and_stage_differ_only_in_approved_fields (test_contract.RealManifestsPass.test_dev_and_stage_differ_only_in_approved_fields) ... ok
   test_every_check_passes_for_every_environment (test_contract.RealManifestsPass.test_every_check_passes_for_every_environment) ... ok
   test_repository_contains_no_credentials (test_contract.RealManifestsPass.test_repository_contains_no_credentials) ... ok
+  test_each_environment_points_at_its_own_overlay_and_namespace (test_delivery.ArgoApplications.test_each_environment_points_at_its_own_overlay_and_namespace) ... ok
+  test_changes_only_the_digest_line (test_delivery.DigestPinning.test_changes_only_the_digest_line) ... ok
+  test_promotion_copies_dev_digest_to_stage (test_delivery.DigestPinning.test_promotion_copies_dev_digest_to_stage) ... ok
+  test_refuses_an_overlay_with_two_digests (test_delivery.DigestPinning.test_refuses_an_overlay_with_two_digests) ... ok
+  test_rejects_anything_but_a_sha256_digest (test_delivery.DigestPinning.test_rejects_anything_but_a_sha256_digest) ... ok
+  test_same_digest_is_a_no_op (test_delivery.DigestPinning.test_same_digest_is_a_no_op) ... ok
+  test_checkout_does_not_leave_credentials_behind (test_delivery.WorkflowTrustBoundary.test_checkout_does_not_leave_credentials_behind) ... ok
+  test_default_token_is_read_only (test_delivery.WorkflowTrustBoundary.test_default_token_is_read_only) ... ok
+  test_jobs_with_secrets_run_only_after_merge_and_inside_an_environment (test_delivery.WorkflowTrustBoundary.test_jobs_with_secrets_run_only_after_merge_and_inside_an_environment) ... ok
+  test_no_privileged_pull_request_triggers (test_delivery.WorkflowTrustBoundary.test_no_privileged_pull_request_triggers) ... ok
+  test_pull_request_workflow_uses_no_secrets (test_delivery.WorkflowTrustBoundary.test_pull_request_workflow_uses_no_secrets) ... ok
+  test_third_party_actions_are_pinned_to_a_commit (test_delivery.WorkflowTrustBoundary.test_third_party_actions_are_pinned_to_a_commit) ... ok
+  test_tool_downloads_are_checksum_verified (test_delivery.WorkflowTrustBoundary.test_tool_downloads_are_checksum_verified) ... ok
+  test_workflows_exist (test_delivery.WorkflowTrustBoundary.test_workflows_exist) ... ok
+  test_database_outage_fails_readiness_only (test_smoke.SmokeTest.test_database_outage_fails_readiness_only) ... ok
+  test_exit_code (test_smoke.SmokeTest.test_exit_code) ... ok
+  test_exposed_admin_endpoint_fails (test_smoke.SmokeTest.test_exposed_admin_endpoint_fails) ... ok
+  test_healthy_service_passes (test_smoke.SmokeTest.test_healthy_service_passes) ... ok
+  test_metrics_must_be_prometheus_text (test_smoke.SmokeTest.test_metrics_must_be_prometheus_text) ... ok
+  test_unreachable_service_fails_every_http_check (test_smoke.SmokeTest.test_unreachable_service_fails_every_http_check) ... ok
   
   ----------------------------------------------------------------------
-  Ran 22 tests in 0.177s
+  Ran 42 tests in 18.104s
   
   OK
+
+[7/7] Alert rules (promtool)
+  SKIP promtool not installed; alert rules are checked in CI (see tests/README.md)
 
 RESULT: PASS
