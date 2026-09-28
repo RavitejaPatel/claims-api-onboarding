@@ -163,7 +163,7 @@ class WorkflowTrustBoundary(unittest.TestCase):
         text = SETUP_TOOLS.read_text(encoding="utf-8")
         downloads = re.findall(r'fetch "https://', text)
         checksums = re.findall(r"\b[0-9a-f]{64}\b", text)
-        self.assertEqual(len(downloads), 3)
+        self.assertEqual(len(downloads), 4)
         self.assertEqual(len(checksums), len(downloads))
         self.assertIn("sha256sum -c", text)
 

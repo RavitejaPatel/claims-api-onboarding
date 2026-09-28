@@ -68,6 +68,8 @@ Each assumption has the default I used and what changes if it is wrong.
 | A12 | No real image exists for this exercise (`registry.example.invalid`) | Overlays pin a reproducible synthetic digest: sha256 of the text `claims-api synthetic placeholder image 1.0.0` | CI replaces it with the real digest on the first build |
 | A13 | The customer registry accepts a push credential stored as a GitHub environment secret | Push credential only in the app repo's `release` environment, used only after merge | If the registry supports OIDC federation (Q10), use a short-lived push role instead and delete the secret |
 | A14 | The GitOps repository uses this repository's layout, at `example-org/platform-gitops` | Workflows and Argo CD Applications use these paths and name | Update the names and paths once Q7 is answered |
+| A15 | The shared Prometheus has kube-state-metrics and labels scraped series with `namespace` | Alert rules use only those series | Adjust label names in `solution/observability/alerts.yaml` |
+| A16 | Operators get read-only access to both namespaces, view access to the Argo CD applications, and Argo CD's restart action | Runbook uses only read-only commands, Git reverts, and the restart action | Adjust the runbook to the access the platform grants |
 
 ## 4. Open questions
 
@@ -85,6 +87,7 @@ At least these must be answered before public exposure or stage sign-off.
 | Q8 | How are schema migrations run and ordered relative to deploys? | Customer | Safe stage rollouts | Assumption A8 |
 | Q9 | `/metrics` and `/healthz` share port 8080 with the API, so the Ingress would expose them too. Can the app serve metrics on a separate port, or should the load balancer block `/metrics`? | Customer + platform | Public exposure | Acceptable while internal-only; must be closed before going public |
 | Q10 | Does the customer registry support OIDC federation from GitHub Actions, so CI needs no stored push credential? | Customer | Nothing (hardening) | Environment-scoped push credential (A13) |
+| Q11 | Which metric names does `/metrics` expose for requests, errors, latency, and database connections? | Customer | Application-level alerts | Kubernetes-level alerts only (`docs/observability.md`) |
 
 ## 5. Decisions made to keep the work moving
 

@@ -1,6 +1,6 @@
 name: setup-tools
 description: >
-  Install pinned, checksum-verified kustomize, kubeconform and actionlint, plus the Python
+  Install pinned, checksum-verified kustomize, kubeconform, actionlint and promtool, plus the Python
   dependency used by tests/validate.py. Requires actions/setup-python to run first.
 runs:
   using: composite
@@ -31,6 +31,10 @@ runs:
         fetch "https://github.com/rhysd/actionlint/releases/download/v1.7.3/actionlint_1.7.3_linux_amd64.tar.gz" \
           actionlint.tar.gz 37252b4d440b56374b0fc1726e05fd7452d30d6d774f6e9b52e65bb64475f9db
         tar -xzf actionlint.tar.gz -C "$bin" actionlint
+
+        fetch "https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz" \
+          prometheus.tar.gz 31715ef65e8a898d0f97c8c08c03b6b9afe485ac84e1698bcfec90fc6e62924f
+        tar -xzf prometheus.tar.gz --strip-components=1 -C "$bin" prometheus-2.54.1.linux-amd64/promtool
 
         echo "$bin" >> "$GITHUB_PATH"
         python -m pip install --disable-pip-version-check -r "$GITHUB_WORKSPACE/tests/requirements.txt"

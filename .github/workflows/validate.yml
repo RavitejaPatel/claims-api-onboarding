@@ -36,7 +36,7 @@ jobs:
         run: actionlint .github/workflows/*.yml solution/ci/app-repo-release.yml
 
       - name: Validate manifests, contracts, drift and credentials
-        run: python tests/validate.py --where "ci (GitHub Actions)"
+        run: python tests/validate.py --strict --where "ci (GitHub Actions)"
 
       - name: Keep the evidence
         if: always()

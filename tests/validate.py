@@ -7,7 +7,8 @@ Steps:
   3. Run the contract checks for each environment.
   4. Check that dev and stage differ only in approved overlay fields.
   5. Scan the repository for credentials.
-  6. Run the unit tests (manifests, delivery path, and workflow trust rules).
+  6. Run the unit tests (manifests, delivery path, workflow trust rules, smoke test).
+  7. Check and unit-test the alert rules with promtool (optional locally; --strict in CI).
 
 Rendered manifests and a log of everything are written to evidence/.
 Nothing is deployed and no cluster is contacted.
@@ -15,6 +16,7 @@ Nothing is deployed and no cluster is contacted.
 Usage:
   python tests/validate.py                  # label defaults to your OS, e.g. "local (Windows)"
   python tests/validate.py --where ci       # label used in the evidence file name/header
+  python tests/validate.py --strict         # fail if an optional tool (promtool) is missing
 """
 
 from __future__ import annotations
@@ -103,6 +105,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--where", default=f"local ({platform.system()})",
                         help="where this run happens, recorded in the evidence file")
+    parser.add_argument("--strict", action="store_true",
+                        help="treat missing optional tools (promtool) as a failure; used in CI")
     args = parser.parse_args()
 
     missing = []
@@ -128,11 +132,12 @@ def main() -> int:
     log(f"  python:      {platform.python_version()}")
     log(f"  kustomize:   {tool_version(manifests.kustomize_version_command())}")
     log(f"  kubeconform: {tool_version(['kubeconform', '-v'])}")
+    log(f"  promtool:    {tool_version(['promtool', '--version']) if shutil.which('promtool') else 'not installed (optional)'}")
     log("  scope:       static checks only; nothing is deployed and no cluster is contacted")
     log()
 
     # 1. Render
-    log("[1/6] Render overlays with Kustomize")
+    log("[1/7] Render overlays with Kustomize")
     rendered_dir = EVIDENCE / "rendered"
     rendered_dir.mkdir(parents=True, exist_ok=True)
     rendered: dict[str, list[dict]] = {}
@@ -153,7 +158,7 @@ def main() -> int:
         return finish(log, failures, args.where, started)
 
     # 2. Schema validation
-    log("\n[2/6] Validate against Kubernetes schemas (kubeconform)")
+    log("\n[2/7] Validate against Kubernetes schemas (kubeconform)")
     if shutil.which("kubeconform"):
         files = [str(rendered_dir / f"{env}.yaml") for env in manifests.ENVIRONMENTS]
         out = subprocess.run(
@@ -170,7 +175,7 @@ def main() -> int:
         failures.append("kubeconform missing")
 
     # 3. Contract checks
-    log("\n[3/6] Contract checks")
+    log("\n[3/7] Contract checks")
     for env in manifests.ENVIRONMENTS:
         for name, problems in cc.run_all(rendered[env], env).items():
             log(f"  {'PASS' if not problems else 'FAIL'} {env:5} {name}")
@@ -180,7 +185,7 @@ def main() -> int:
                 failures.append(f"{env} {name}")
 
     # 4. Drift
-    log("\n[4/6] Environment drift (dev vs stage)")
+    log("\n[4/7] Environment drift (dev vs stage)")
     drift = cc.check_drift(rendered["dev"], rendered["stage"])
     log(f"  {'PASS' if not drift else 'FAIL'} dev and stage differ only in approved overlay fields")
     for problem in drift:
@@ -189,7 +194,7 @@ def main() -> int:
         failures.append("drift")
 
     # 5. Secret scan
-    log("\n[5/6] Credential scan (whole repository)")
+    log("\n[5/7] Credential scan (whole repository)")
     findings = secret_scan.scan_repo()
     log("  PASS no credential markers found" if not findings else "  FAIL credential markers found")
     for finding in findings:
@@ -198,7 +203,7 @@ def main() -> int:
         failures.append("secret scan")
 
     # 6. Unit tests
-    log("\n[6/6] Unit tests (python -m unittest)")
+    log("\n[6/7] Unit tests (python -m unittest)")
     stream = io.StringIO()
     suite = unittest.defaultTestLoader.discover(str(HERE), pattern="test_*.py")
     with redirect_stdout(stream), redirect_stderr(stream):
@@ -207,6 +212,26 @@ def main() -> int:
         log(f"  {line}")
     if not result.wasSuccessful():
         failures.append("unit tests")
+
+    # 7. Alert rules
+    log("\n[7/7] Alert rules (promtool)")
+    rules = manifests.REPO_ROOT / "solution" / "observability"
+    if shutil.which("promtool"):
+        for label, command in (
+            ("rule syntax", ["promtool", "check", "rules", str(rules / "alerts.yaml")]),
+            ("alert unit tests", ["promtool", "test", "rules", str(rules / "alerts.test.yaml")]),
+        ):
+            out = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=False)
+            for line in (out.stdout + out.stderr).strip().splitlines():
+                log(f"  {line}")
+            log(f"  {'PASS' if out.returncode == 0 else 'FAIL'} {label}")
+            if out.returncode != 0:
+                failures.append(label)
+    elif args.strict:
+        log("  FAIL promtool not found on PATH (required with --strict)")
+        failures.append("promtool missing")
+    else:
+        log("  SKIP promtool not installed; alert rules are checked in CI (see tests/README.md)")
 
     return finish(log, failures, args.where, started)
 

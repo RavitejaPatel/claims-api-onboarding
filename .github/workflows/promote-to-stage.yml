@@ -38,7 +38,7 @@ jobs:
 
       - name: Validate before proposing the change
         if: steps.promote.outputs.changed == 'true'
-        run: python tests/validate.py --where "ci (stage promotion)"
+        run: python tests/validate.py --strict --where "ci (stage promotion)"
 
       # Pull requests opened with the default GITHUB_TOKEN do not trigger other workflows,
       # so the required `validate` check would never run on them. A short-lived GitHub App

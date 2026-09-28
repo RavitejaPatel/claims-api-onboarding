@@ -1,0 +1,132 @@
+# Unit tests for alerts.yaml. Run: promtool test rules solution/observability/alerts.test.yaml
+# Each test feeds synthetic metric series and states exactly which alerts must fire.
+rule_files:
+  - alerts.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # PostgreSQL unavailable for 10 minutes: readiness fails on both pods, liveness does not,
+  # so there are no restarts. Expect ClaimsApiNoReadyPods only, then recovery.
+  - name: database outage of 10 minutes
+    interval: 1m
+    input_series:
+      - series: 'kube_deployment_status_replicas_available{namespace="claims-api-stage", deployment="claims-api"}'
+        values: '2 2 0x9 2 2 2'
+      - series: 'kube_deployment_spec_replicas{namespace="claims-api-stage", deployment="claims-api"}'
+        values: '2x15'
+      - series: 'kube_pod_container_status_restarts_total{namespace="claims-api-stage", pod="claims-api-a", container="claims-api"}'
+        values: '0x15'
+      - series: 'up{namespace="claims-api-stage", pod="claims-api-a"}'
+        values: '1x15'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: ClaimsApiNoReadyPods
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ClaimsApiNoReadyPods
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: claims
+              namespace: claims-api-stage
+              deployment: claims-api
+            exp_annotations:
+              summary: "claims-api in claims-api-stage has no ready pods"
+              description: "No claims-api pod has passed readiness (/readyz) for 2 minutes. Requests are failing. Check database connectivity first."
+              runbook_url: "runbook.md#claimsapinoreadypods"
+      - eval_time: 5m
+        alertname: ClaimsApiRestarting
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ClaimsApiDegraded
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: ClaimsApiNoReadyPods
+        exp_alerts: []
+
+  # A process that keeps crashing: restarts climb while one of two pods is available.
+  - name: crash loop on one pod
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_container_status_restarts_total{namespace="claims-api-dev", pod="claims-api-b", container="claims-api"}'
+        values: '0 1 2 3 4 5 6'
+      - series: 'kube_deployment_status_replicas_available{namespace="claims-api-dev", deployment="claims-api"}'
+        values: '1x20'
+      - series: 'kube_deployment_spec_replicas{namespace="claims-api-dev", deployment="claims-api"}'
+        values: '2x20'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ClaimsApiRestarting
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ClaimsApiRestarting
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: claims
+              namespace: claims-api-dev
+              pod: claims-api-b
+              container: claims-api
+            exp_annotations:
+              summary: "claims-api pod claims-api-b restarted more than 3 times in 15 minutes"
+              description: "The container keeps restarting. Check logs of the previous container and whether it was OOMKilled."
+              runbook_url: "runbook.md#claimsapirestarting"
+      - eval_time: 12m
+        alertname: ClaimsApiDegraded
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: claims
+              namespace: claims-api-dev
+              deployment: claims-api
+            exp_annotations:
+              summary: "claims-api in claims-api-dev is running below its desired replicas"
+              description: "Fewer ready pods than desired for 10 minutes. Service is up with reduced capacity."
+              runbook_url: "runbook.md#claimsapidegraded"
+
+  # A bad release: the progress deadline passes; the old version keeps serving.
+  - name: rollout stuck
+    interval: 1m
+    input_series:
+      - series: 'kube_deployment_status_condition{namespace="claims-api-dev", deployment="claims-api", condition="Progressing", status="false"}'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ClaimsApiRolloutStuck
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: claims
+              namespace: claims-api-dev
+              deployment: claims-api
+              condition: Progressing
+              status: "false"
+            exp_annotations:
+              summary: "claims-api rollout in claims-api-dev is stuck"
+              description: "The new version did not become ready within the progress deadline. The previous version is still serving. Roll back or fix forward."
+              runbook_url: "runbook.md#claimsapirolloutstuck"
+
+  # Scrapes fail: the platform team is routed first.
+  - name: metrics scrape broken
+    interval: 1m
+    input_series:
+      - series: 'up{namespace="claims-api-dev", pod="claims-api-a"}'
+        values: '1 1 0x12'
+      - series: 'up{namespace="claims-api-dev", pod="claims-api-b"}'
+        values: '1 1 0x12'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: ClaimsApiMetricsMissing
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: ClaimsApiMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              namespace: claims-api-dev
+            exp_annotations:
+              summary: "Prometheus cannot scrape claims-api in claims-api-dev"
+              description: "No successful scrape of /metrics for 10 minutes. Alerts based on application metrics are blind until this is fixed."
+              runbook_url: "runbook.md#claimsapimetricsmissing"

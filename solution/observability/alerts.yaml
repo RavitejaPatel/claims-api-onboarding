@@ -1,0 +1,87 @@
+# Alert rules for claims-api, in the standard Prometheus rule-file format.
+#
+# These use only Kubernetes metrics from kube-state-metrics and the scrape `up` series,
+# which a shared Prometheus normally has (assumption A15). How the platform loads rule
+# files (for example a PrometheusRule resource) is platform-owned, so this file is the
+# content to hand over, not a new platform API.
+#
+# Application-level alerts (error rate, latency, database pool) wait for the customer to
+# confirm metric names from /metrics (Q11); see docs/observability.md.
+#
+# Routing: `team` says who acts first. `claims` = customer application team,
+# `platform` = platform team. Every alert links to its runbook section.
+groups:
+  - name: claims-api
+    rules:
+      - alert: ClaimsApiNoReadyPods
+        # No pod passes readiness, so no request can be served. Most often the database
+        # is unreachable: readiness checks it, liveness does not, so pods stay running.
+        expr: |
+          kube_deployment_status_replicas_available{deployment="claims-api", namespace=~"claims-api-(dev|stage)"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: claims
+        annotations:
+          summary: "claims-api in {{ $labels.namespace }} has no ready pods"
+          description: "No claims-api pod has passed readiness (/readyz) for 2 minutes. Requests are failing. Check database connectivity first."
+          runbook_url: "runbook.md#claimsapinoreadypods"
+
+      - alert: ClaimsApiDegraded
+        # Some, but not all, replicas are available. Service continues with less headroom.
+        expr: |
+          kube_deployment_status_replicas_available{deployment="claims-api", namespace=~"claims-api-(dev|stage)"}
+            < on (namespace, deployment)
+          kube_deployment_spec_replicas{deployment="claims-api", namespace=~"claims-api-(dev|stage)"}
+          and on (namespace, deployment)
+          kube_deployment_status_replicas_available{deployment="claims-api", namespace=~"claims-api-(dev|stage)"} > 0
+        for: 10m
+        labels:
+          severity: warning
+          team: claims
+        annotations:
+          summary: "claims-api in {{ $labels.namespace }} is running below its desired replicas"
+          description: "Fewer ready pods than desired for 10 minutes. Service is up with reduced capacity."
+          runbook_url: "runbook.md#claimsapidegraded"
+
+      - alert: ClaimsApiRolloutStuck
+        # progressDeadlineSeconds (5 minutes) passed without the new pods becoming ready.
+        # Old pods keep serving because maxUnavailable is 0.
+        expr: |
+          kube_deployment_status_condition{deployment="claims-api", namespace=~"claims-api-(dev|stage)", condition="Progressing", status="false"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          team: claims
+        annotations:
+          summary: "claims-api rollout in {{ $labels.namespace }} is stuck"
+          description: "The new version did not become ready within the progress deadline. The previous version is still serving. Roll back or fix forward."
+          runbook_url: "runbook.md#claimsapirolloutstuck"
+
+      - alert: ClaimsApiRestarting
+        # Liveness only checks process health, so restarts mean the process itself is
+        # failing (crash, out of memory, hang), not the database.
+        expr: |
+          increase(kube_pod_container_status_restarts_total{container="claims-api", namespace=~"claims-api-(dev|stage)"}[15m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          team: claims
+        annotations:
+          summary: "claims-api pod {{ $labels.pod }} restarted more than 3 times in 15 minutes"
+          description: "The container keeps restarting. Check logs of the previous container and whether it was OOMKilled."
+          runbook_url: "runbook.md#claimsapirestarting"
+
+      - alert: ClaimsApiMetricsMissing
+        # Prometheus cannot scrape /metrics. Either the pods are gone or the scrape path
+        # (network policy or scrape configuration) is broken, which hides every other signal.
+        expr: |
+          max by (namespace) (up{namespace=~"claims-api-(dev|stage)"}) == 0
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Prometheus cannot scrape claims-api in {{ $labels.namespace }}"
+          description: "No successful scrape of /metrics for 10 minutes. Alerts based on application metrics are blind until this is fixed."
+          runbook_url: "runbook.md#claimsapimetricsmissing"

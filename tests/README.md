@@ -15,6 +15,7 @@ python tests/validate.py
 | 4. Drift | Dev and stage compared after removing the approved overlay fields; any other difference is reported by field path | "Dev and stage differ only through reviewed overlay configuration" |
 | 5. Credentials | Every text file in the repository scanned for keys, tokens, passwords in URLs, and Secrets with inline data | A committed secret is a hard fail |
 | 6. Unit tests | `test_contract.py`: the real manifests pass, and 19 deliberate mistakes (broken copies of the manifests and fake credentials) are each caught by the right check. `test_delivery.py`: digest pinning, Argo CD wiring, and the CI trust rules (pinned actions, read-only token, no secrets on pull requests) | Proves the checks can fail, so a pass means something |
+| 7. Alert rules | `promtool check rules` and `promtool test rules` on `solution/observability/` | Alerts are valid and fire (or stay quiet) in the scenarios that matter. Optional locally (SKIP if promtool is missing); required in CI via `--strict` |
 
 The result and all output are written to `evidence/validation-<where>.txt`. The exit
 code is 0 on success and 1 on any failure, so CI can use the same command.
@@ -30,13 +31,16 @@ code is 0 on success and 1 on any failure, so CI can use the same command.
 | `contract_checks.py` | The rules, each traced to an input document |
 | `test_contract.py` | Unit tests for the rules |
 | `test_delivery.py` | Tests for the delivery path and workflow trust boundary |
+| `smoke.py` | Smoke test for a live deployment (run after every deploy or rollback; see `runbook.md`) |
+| `test_smoke.py` | Runs `smoke.py` against local stand-ins of the app, healthy and broken |
 | `manifests.py` | Renders an overlay and parses the YAML (shared by the runner and tests) |
 | `secret_scan.py` | Credential scanner |
 | `requirements.txt` | Python dependency (PyYAML) |
 
 ## Setup
 
-Needs Python 3.9+, PyYAML, kustomize v5.4+, and kubeconform. `kubectl kustomize` is used
+Needs Python 3.9+, PyYAML, kustomize v5.4+, and kubeconform. `promtool` (from the
+Prometheus release) is optional locally and required in CI. `kubectl kustomize` is used
 if standalone kustomize is missing, but kubectl bundles an older kustomize that may not
 support every field used here, so the standalone binary is recommended.
 
